@@ -1,18 +1,19 @@
 require 'ruby_apk'
 require 'cairo'
 
+# extension for ruby_apk
 module Android
   class Dex
-
     class DexObject
-      attr_reader :offset
-
       class StringDataItem
         def size
           @params[:utf16_size] + @size
         end
       end
+
+      attr_reader :offset
     end
+
     attr_reader :header
     attr_reader :map_list
     attr_reader :string_ids
@@ -27,6 +28,7 @@ end
 class DexMap
   attr_reader :base_ranges
   attr_reader :string_ranges, :class_data_ranges, :code_item_ranges
+  attr_reader :debug_info_ranges, :try_item_ranges
 
   def initialize(dex)
     @dex = dex
@@ -42,6 +44,23 @@ class DexMap
       return k
     end
   end
+  def to_png(filename)
+    width = 256
+    height = ((@dex.h[:file_size]/width) + 1) * 4
+    surface = Cairo::ImageSurface.new(Cairo::FORMAT_ARGB32, width, height)
+    context = Cairo::Context.new(surface)
+    (0...@dex.h[:file_size]).step(4) do |addr|
+      y = (addr / width) * 4
+      x = (addr % width)
+      color = type_to_color(area(addr))
+      context.set_source_color(color)
+      context.rectangle(x,y, 4,4)
+      context.fill
+    end
+    surface.write_to_png(filename)
+  end
+
+  private
   def parse
     @base_ranges = {}
     @base_ranges[:header] = range_of_dexobject(@dex.header)
@@ -89,7 +108,6 @@ class DexMap
       :try_item => @try_item_ranges,
     }
   end
-
   def range_of_array(arr)
     offset = arr.first.offset
     last = arr.last.offset + arr.last.size
@@ -120,21 +138,6 @@ class DexMap
       :try_item=>Cairo::Color::NAVY_BLUE,
     }
     colors.fetch(type)
-  end
-  def to_png(filename)
-    width = 256
-    height = ((@dex.h[:file_size]/width) + 1) * 4
-    surface = Cairo::ImageSurface.new(Cairo::FORMAT_ARGB32, width, height)
-    context = Cairo::Context.new(surface)
-    (0...@dex.h[:file_size]).step(4) do |addr|
-      y = (addr / width) * 4
-      x = (addr % width)
-      color = type_to_color(area(addr))
-      context.set_source_color(color)
-      context.rectangle(x,y, 4,4)
-      context.fill
-    end
-    surface.write_to_png(filename)
   end
 end
 

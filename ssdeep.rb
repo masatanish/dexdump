@@ -1,7 +1,6 @@
 require 'ssdeep'
 require 'ruby_apk'
 
-ssdeep = {}
 
 if ARGV.size != 1 || !File.directory?(ARGV[0])
   $stderr.puts "Usage: #{$0} TARGET_DIRECTORY"
@@ -9,6 +8,7 @@ if ARGV.size != 1 || !File.directory?(ARGV[0])
 end
 
 puts 'ssdeep hash -------------'
+ssdeep = {}
 Dir.glob(File.join(ARGV[0], "**/*")).each do |path|
   next unless File.file? path
   apk = Android::Apk.new(path)
