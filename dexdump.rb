@@ -1,4 +1,5 @@
 require 'ruby_apk'
+require 'cairo'
 
 module Android
   class Dex
@@ -100,7 +101,43 @@ class DexMap
   def range_with_size(offset, size)
     Range.new(offset, offset + size, true)
   end
+
+
+  def type_to_color(type)
+    colors = {
+      :header => Cairo::Color::LIME,
+      :string_ids => Cairo::Color::MIDNIGHT_BLUE,
+      :type_ids => Cairo::Color::MINT_GREEN,
+      :proto_ids =>Cairo::Color::MOSS_GREEN,
+      :field_ids=> Cairo::Color::PEACH,
+      :method_ids =>Cairo::Color::AQUAMARINE,
+      :class_defs =>Cairo::Color::ORANGE,
+      :data=>Cairo::Color::SILVER,
+      :code_item=>Cairo::Color::YELLOW,
+      :class_data=>Cairo::Color::CORAL_RED,
+      :string=>Cairo::Color::BLUE,
+      :debug_info=>Cairo::Color::DARK_BLUE,
+      :try_item=>Cairo::Color::NAVY_BLUE,
+    }
+    colors.fetch(type)
+  end
+  def to_png(filename)
+    width = 256
+    height = ((@dex.h[:file_size]/width) + 1) * 4
+    surface = Cairo::ImageSurface.new(Cairo::FORMAT_ARGB32, width, height)
+    context = Cairo::Context.new(surface)
+    (0...@dex.h[:file_size]).step(4) do |addr|
+      y = (addr / width) * 4
+      x = (addr % width)
+      color = type_to_color(area(addr))
+      context.set_source_color(color)
+      context.rectangle(x,y, 4,4)
+      context.fill
+    end
+    surface.write_to_png(filename)
+  end
 end
+
 
 if __FILE__ == $0
   apk = Android::Apk.new(ARGV[0])
@@ -120,8 +157,13 @@ if __FILE__ == $0
   end
 =end
 
+  dmap.to_png(File.basename(ARGV[0]) + '.png')
+
+
+=begin
   dmap.base_ranges[:data].step(8) do |addr|
     puts "%#010x: %s" % [ addr, dmap.area(addr)]
   end
+=end
 
 end
