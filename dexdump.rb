@@ -5,7 +5,7 @@ module Android
 
     class DexObject
       attr_reader :offset
-      
+
       class StringDataItem
         def size
           @params[:utf16_size] + @size
@@ -21,50 +21,6 @@ module Android
     attr_reader :method_ids
     attr_reader :class_defs
   end
-end
-
-=begin
-header
-map
-string_ids
-type_ids
-proto_ids
-field_ids
-method_ids
-class_defs
-data
-
-string_data_item
-class_data_item
-code_item
-debug_info_item
-=end
-
-def array_bytes(arr)
-  arr.last.offset - arr.first.offset + arr.last.size
-end
-def dump(apk)
-  dex = apk.dex
-  puts "size :%#010x" % [dex.h[:file_size]]
-  puts "header:      %#010x (%#x)" % [ dex.h.offset, dex.h.size ]
-  puts "string ids:  %#010x (%#x) %d" % [ dex.string_ids.offset, dex.string_ids.size, dex.h[:string_ids_size] ]
-  puts "type ids:    %#010x (%#x) %d" % [ dex.h[:type_ids_off], dex.type_ids.size, dex.type_ids.ids_size]
-  puts "proto ids:   %#010x (%#x) %d" % [ dex.h[:proto_ids_off], array_bytes(dex.proto_ids), dex.proto_ids.size]
-  puts "field ids:   %#010x (%#x) %d" % [ dex.h[:field_ids_off], array_bytes(dex.field_ids), dex.field_ids.size]
-  last = dex.method_ids.last
-  puts "method ids:  %#010x (%#x) %d" % [ dex.h[:method_ids_off], array_bytes(dex.method_ids), dex.method_ids.size]
-  last = dex.class_defs.last
-  puts "class defs:  %#010x (%#x) %d" % [ dex.h[:class_defs_off], array_bytes(dex.class_defs), dex.class_defs.size]
-  puts "data:        %#010x (%#x)" % [ dex.h[:data_off], dex.h[:data_size]]
-  puts "map list:    %#010x (%#x)" % [ dex.h[:map_off], dex.map_list.size ]
-  puts '-' * 20
-
-  first = dex.string_data_items.first
-  puts "string data start: %#010x (%#x)" % [ first.offset, first.size ]
-  last = dex.string_data_items.last
-  puts "string data last: %#010x (%#x) %s" % [ last.offset, last.size, last.to_s ]
-
-  
 end
 
 class DexMap
@@ -110,11 +66,10 @@ class DexMap
           unless m.code_item.nil?
             @code_item_ranges << range_of_dexobject(m.code_item)
             unless m.code_item.debug_info_item.nil?
-              p m.code_item.debug_info_item
               @debug_info_ranges << range_of_dexobject(m.code_item.debug_info_item)
             end
-            if m.code_item[:tires_size] > 0
-              @try_item_ranges += m.code_item[:tires].map{|t| range_of_dexobject(t) }
+            if m.code_item[:tries_size] > 0
+              @try_item_ranges += m.code_item[:tries].map{|t| range_of_dexobject(t) }
             end
           end
         end
@@ -126,11 +81,11 @@ class DexMap
       end
     end
     @array_ranges = {
-      :code_item_ranges => @code_item_ranges,
-      :class_data_ranges => @class_data_ranges,
-      :string_ranges => @string_ranges,
-      :debug_info_ranges=> @debug_info_ranges ,
-      :try_item_ranges => @try_item_ranges,
+      :code_item => @code_item_ranges,
+      :class_data => @class_data_ranges,
+      :string => @string_ranges,
+      :debug_info => @debug_info_ranges ,
+      :try_item => @try_item_ranges,
     }
   end
 
@@ -150,19 +105,22 @@ end
 if __FILE__ == $0
   apk = Android::Apk.new(ARGV[0])
   dmap = DexMap.new(apk.dex)
+  puts "file size: #{apk.dex.h[:file_size]}"
   dmap.base_ranges.each do |k, v|
-    puts "%s: %#010x - %#010x" % [ k, v.begin, v.end]
+    puts "%s: %#010x - %#010x (%d)" % [ k, v.begin, v.end-1, v.end-v.begin]
   end
+=begin
   puts '-' * 10
   dmap.code_item_ranges.each do |v|
-    puts "%#010x - %#010x" % [v.begin, v.end]
+    puts "%#010x - %#010x (%d)" % [v.begin, v.end-1, v.end-v.begin]
   end
   puts '-' * 10
   dmap.class_data_ranges.each do |v|
     puts "%#010x - %#010x" % [v.begin, v.end]
   end
+=end
 
-  dmap.base_ranges[:data].step(4) do |addr|
+  dmap.base_ranges[:data].step(8) do |addr|
     puts "%#010x: %s" % [ addr, dmap.area(addr)]
   end
 
